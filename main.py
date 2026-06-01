@@ -20,7 +20,7 @@ services:
       run.oci.handler: krun
       krun.ram_mib: "4096"
       krun.cpus: "4"
-    user: "1000:1000"
+    user: "${HOST_UID}:${HOST_GID}"  # run as the host user so bind-mounted files keep correct ownership
     userns_mode: keep-id    # optional, for rootless host
     build:
       context: .
