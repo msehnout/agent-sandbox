@@ -9,6 +9,14 @@ It generates a `.agent-sandbox/` directory with a `docker-compose.yaml`, `Docker
 - Python ≥ 3.14
 - `podman-compose` (or edit `COMPOSE_CMD` in `main.py` to use `docker compose`)
 
+## Installation
+
+```bash
+uv tool install --editable .
+```
+
+This installs the `sbx` command on your `PATH`. The `--editable` flag is intentional: `agent-sandbox` is meant to be a starting point, not a finished product. You're expected to tweak `main.py` (the scaffolded templates, `COMPOSE_CMD`, mounts, etc.) to fit your own workflow — and because the install is editable, those edits take effect immediately without reinstalling.
+
 ## Usage
 
 ```bash
