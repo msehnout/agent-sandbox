@@ -55,6 +55,10 @@ FROM fedora:44
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 
+# Install dependency for pnpm
+RUN dnf install libatomic -y && \
+    dnf clean all
+
 # Create group and user matching host UID/GID
 RUN groupadd -g ${HOST_GID} appuser && \
     useradd -u ${HOST_UID} -g ${HOST_GID} -m appuser
@@ -73,7 +77,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 USER root
 
 # Frequently-changing RPMs. Kept last so adding a package only rebuilds from here down.
-RUN dnf install git make vim fish free htop nodejs22 nodejs22-npm-bin libatomic libpq-devel python3-devel gcc -y && \
+RUN dnf install git make vim fish free htop nodejs22 nodejs22-npm-bin libpq-devel python3-devel gcc -y && \
     dnf clean all
 
 COPY --chown=appuser entrypoint.sh /entrypoint.sh
