@@ -1,10 +1,15 @@
 import argparse
+import os
 import random
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 SANDBOX_DIR = ".agent-sandbox"
+COMPOSE_FILE = "docker-compose.yaml"
+SERVICE = "claude"
+COMPOSE_CMD = ["podman-compose"]  # Replace with docker compose if you wish
 
 DOCKER_COMPOSE_TEMPLATE = r"""
 services:
@@ -132,22 +137,48 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_compose(compose_args: list[str], verbose: bool = False) -> int:
+    """Invoke `<compose> -f .agent-sandbox/docker-compose.yaml <args>` with host IDs."""
+    compose_file = Path.cwd() / SANDBOX_DIR / COMPOSE_FILE
+    if not compose_file.exists():
+        print(
+            f"No {SANDBOX_DIR}/{COMPOSE_FILE} found. Run `sbx init` first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    env = {
+        **os.environ,
+        "HOST_UID": str(os.getuid()),  # mirror `id -u` / `id -g` from the Makefile so
+        "HOST_GID": str(os.getgid()),  # files made in the container keep host ownership
+    }
+
+    cmd = [*COMPOSE_CMD, "-f", str(compose_file), *compose_args]
+    if verbose:
+        print("+ " + " ".join(cmd), file=sys.stderr)
+    try:
+        return subprocess.run(cmd, env=env).returncode
+    except FileNotFoundError:
+        print(f"`{COMPOSE_CMD[0]}` not found on PATH.", file=sys.stderr)
+        return 127
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     """Build the sandbox image."""
-    print("build: building sandbox…")  # TODO
-    return 0
+    return _run_compose(["build"], args.verbose)
 
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the sandbox (optionally running a command inside it)."""
-    print(f"run: starting sandbox… cmd={args.cmd or '<default>'}")  # TODO
-    return 0
+    cmd = args.cmd or []
+    if cmd and cmd[0] == "--":  # argparse.REMAINDER keeps a leading `--`
+        cmd = cmd[1:]
+    return _run_compose(["run", "--rm", SERVICE, *cmd], args.verbose)
 
 
 def cmd_down(args: argparse.Namespace) -> int:
     """Stop and remove the running sandbox."""
-    print("down: tearing down sandbox…")  # TODO
-    return 0
+    return _run_compose(["down", "--remove-orphans"], args.verbose)
 
 
 def build_parser() -> argparse.ArgumentParser:
