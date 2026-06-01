@@ -25,11 +25,11 @@ services:
     build:
       context: .
       args:
-        HOST_UID: "${HOST_UID}"  # use UID and GID from the host so that files created in the container have correct permissions
+        HOST_UID: "${HOST_UID}"  # use host UID/GID so files created in the container keep correct permissions
         HOST_GID: "${HOST_GID}"
     volumes:
       - ../:/app:U,z                  # bind mount your project
-      - {{PROJECT}}-venv-cache:/venv:U,z # shadows .venv from host, named volume prevents .venv from being recreated every time
+      - {{PROJECT}}-venv-cache:/venv:U,z # shadows host .venv; named volume keeps it from being recreated each run
       - claude-config:/home/appuser/.claude:U,z  # persistent claude credentials/config
     working_dir: /app
     stdin_open: true
@@ -38,7 +38,7 @@ services:
       - CLAUDE_CONFIG_DIR=/home/appuser/.claude
       - UV_LINK_MODE=copy
       - UV_PROJECT_ENVIRONMENT=/venv/env  # This is inside the cached volume
-      - UV_PYTHON_INSTALL_DIR=/venv/python  # So that uv-managed python installations are not in home but cached in /venv
+      - UV_PYTHON_INSTALL_DIR=/venv/python  # keep uv-managed python installs out of home, cached in /venv
       - TERM=xterm-256color
       - COLORTERM=truecolor
 
@@ -127,9 +127,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     base = f"{project}-{suffix}"
 
     target.mkdir()
-    (target / "docker-compose.yaml").write_text(
-        DOCKER_COMPOSE_TEMPLATE.replace("{{PROJECT}}", base).lstrip("\n")
-    )
+    (target / "docker-compose.yaml").write_text(DOCKER_COMPOSE_TEMPLATE.replace("{{PROJECT}}", base).lstrip("\n"))
     (target / "Dockerfile").write_text(DOCKERFILE_TEMPLATE.lstrip("\n"))
     entrypoint = target / "entrypoint.sh"
     entrypoint.write_text(ENTRYPOINT_TEMPLATE.lstrip("\n"))
@@ -191,15 +189,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
-    sub.add_parser("init", help="initialize a new sandbox here").set_defaults(
-        func=cmd_init
-    )
+    sub.add_parser("init", help="initialize a new sandbox here").set_defaults(func=cmd_init)
     sub.add_parser("build", help="build the sandbox image").set_defaults(func=cmd_build)
 
     p_run = sub.add_parser("run", help="start the sandbox")
-    p_run.add_argument(
-        "cmd", nargs=argparse.REMAINDER, help="command to run inside the sandbox"
-    )
+    p_run.add_argument("cmd", nargs=argparse.REMAINDER, help="command to run inside the sandbox")
     p_run.set_defaults(func=cmd_run)
 
     sub.add_parser("down", help="tear down the sandbox").set_defaults(func=cmd_down)
