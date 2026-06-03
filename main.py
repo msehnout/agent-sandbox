@@ -10,6 +10,8 @@ SANDBOX_DIR = ".agent-sandbox"
 COMPOSE_FILE = "docker-compose.yaml"
 SERVICE = "claude"
 COMPOSE_CMD = ["podman-compose"]  # Replace with docker compose if you wish
+ENGINE_CMD = ["podman"]  # Replace with docker if you wish
+CLAUDE_CONFIG_VOLUME = "claude-config"  # external volume shared by all sandboxes
 
 DOCKER_COMPOSE_TEMPLATE = r"""
 services:
@@ -165,6 +167,29 @@ def _run_compose(compose_args: list[str], verbose: bool = False) -> int:
         return 127
 
 
+def _ensure_volume(name: str, verbose: bool = False) -> int:
+    """Create the named volume if it does not exist (compose marks it external)."""
+    try:
+        exists = (
+            subprocess.run(
+                [*ENGINE_CMD, "volume", "inspect", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode
+            == 0
+        )
+        if exists:
+            return 0
+        cmd = [*ENGINE_CMD, "volume", "create", name]
+        if verbose:
+            print("+ " + " ".join(cmd), file=sys.stderr)
+        print(f"Creating volume {name}...", file=sys.stderr)
+        return subprocess.run(cmd).returncode
+    except FileNotFoundError:
+        print(f"`{ENGINE_CMD[0]}` not found on PATH.", file=sys.stderr)
+        return 127
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     """Build the sandbox image."""
     return _run_compose(["build"], args.verbose)
@@ -172,6 +197,9 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the sandbox (optionally running a command inside it)."""
+    rc = _ensure_volume(CLAUDE_CONFIG_VOLUME, args.verbose)
+    if rc != 0:
+        return rc
     cmd = args.cmd or []
     if cmd and cmd[0] == "--":  # argparse.REMAINDER keeps a leading `--`
         cmd = cmd[1:]
