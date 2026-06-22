@@ -192,7 +192,10 @@ def _ensure_volume(name: str, verbose: bool = False) -> int:
 
 def cmd_build(args: argparse.Namespace) -> int:
     """Build the sandbox image."""
-    return _run_compose(["build"], args.verbose)
+    compose_args = ["build"]
+    if args.force:
+        compose_args.append("--no-cache")
+    return _run_compose(compose_args, args.verbose)
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -218,7 +221,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
     sub.add_parser("init", help="initialize a new sandbox here").set_defaults(func=cmd_init)
-    sub.add_parser("build", help="build the sandbox image").set_defaults(func=cmd_build)
+    p_build = sub.add_parser("build", help="build the sandbox image")
+    p_build.add_argument("-f", "--force", action="store_true", help="rebuild the image without using cache")
+    p_build.set_defaults(func=cmd_build)
 
     p_run = sub.add_parser("run", help="start the sandbox")
     p_run.add_argument("cmd", nargs=argparse.REMAINDER, help="command to run inside the sandbox")

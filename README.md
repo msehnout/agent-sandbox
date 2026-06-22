@@ -22,6 +22,7 @@ This installs the `sbx` command on your `PATH`. The `--editable` flag is intenti
 ```bash
 sbx init     # scaffold .agent-sandbox/ in the current directory
 sbx build    # build the sandbox image
+sbx build -f # rebuild the sandbox image without using cache
 sbx run      # start the sandbox (drops you into a shell)
 sbx down     # stop and remove the sandbox
 ```
